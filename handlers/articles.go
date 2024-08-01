@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,6 +13,9 @@ import (
 
 var articles = map[int]models.Article{} // creamos un array para guardar articulos
 var nextID = 1                          // la variable que asignara un id a cada articulo
+
+// templates para usar en html
+var templates = template.Must(template.ParseFiles("templates/list.html"))
 
 // manejar las solicitudes para crear un articulo
 func CreateArticle(w http.ResponseWriter, r *http.Request) {
@@ -63,22 +67,47 @@ func DeleteArticle(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent) // decirle que ya no existe ese articulo
 }
 
-func UpdateArticle(w http.ResponseWriter, r *http.Request)  {
-    idStr := mux.Vars(r)["id"]
-    id, err := strconv.Atoi(idStr)
+func UpdateArticle(w http.ResponseWriter, r *http.Request) {
+	idStr := mux.Vars(r)["id"]
+	id, err := strconv.Atoi(idStr)
 
-    if err != nil{
-        http.Error(w, "Invalid ID!", http.StatusBadRequest)
-        return
-    }
+	if err != nil {
+		http.Error(w, "Invalid ID!", http.StatusBadRequest)
+		return
+	}
 
-    if _, exists := articles[id]; !exists {
-        http.Error(w, "Article not found!", http.StatusNotFound)
-        return
-    }
+	if _, exists := articles[id]; !exists {
+		http.Error(w, "Article not found!", http.StatusNotFound)
+		return
+	}
 
+	var UpdatedArticle models.Article
 
+	err = json.NewDecoder(r.Body).Decode(&UpdatedArticle)
+
+	if err != nil {
+		http.Error(w, "Error while processing the article", http.StatusBadRequest)
+		return
+	}
+	articles[id] = UpdatedArticle
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(UpdatedArticle)
 }
 
 func ListAllArticles(w http.ResponseWriter, r *http.Request) {
+
+	var articleList []models.Article
+	for _, article := range articles {
+		articleList = append(articleList, article)
+	}
+
+    // aca le servimos el archivo html. con lo cual tenemos que usar templates
+	w.Header().Set("Content-Type", "text/html")
+    if err := templates.ExecuteTemplate(w, "list.html", articleList);err != nil{
+        http.Error(w, "Error rendering the templates", http.StatusInternalServerError)
+    }
+
+	//w.WriteHeader(http.StatusOK)
+
+	//json.NewEncoder(w).Encode(articleList)
 }
